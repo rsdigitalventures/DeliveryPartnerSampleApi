@@ -8,7 +8,7 @@ This is an example API for a delivery company. It shows how to expose API method
 
 ## Installing
 
-This example uses a SQL Server database for storing delivery details. You can install the database and some sample data by going to ## Swagger
+This example uses a SQL Server database for storing delivery details. You can install the database and some sample data by going to this URL. Once it is complete go back to home page of application
 
 You can see the swagger UI here: https://localhost:44359/api/install
 
