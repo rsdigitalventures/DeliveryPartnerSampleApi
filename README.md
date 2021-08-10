@@ -5,6 +5,8 @@ This is an example API for a delivery company. It shows how to expose API method
 - Create Delivery
 - Cancel Delivery
 - Get Delivery By ID
+- Check Coverage by Latitude/Longitude
+- Reverse Latitude/Longitude to Address including Postcode
 
 ## Accessing
 

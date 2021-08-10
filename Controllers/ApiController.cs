@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace DeliveryPartnerSampleApi.Controllers
@@ -13,16 +14,22 @@ namespace DeliveryPartnerSampleApi.Controllers
     {
         public ApiController(ApplicationDbContext applicationDbContext,
             IDeliveryService deliveryService,
-            ILogger<ApiController> logger)
+            ILogger<ApiController> logger,
+            IPumiService pumiService,
+            IGeoJsonService geoJsonService)
         {
             ApplicationDbContext = applicationDbContext;
             DeliveryService = deliveryService;
             Logger = logger;
+            PumiService = pumiService;
+            GeoJsonService = geoJsonService;
         }
 
         public ApplicationDbContext ApplicationDbContext { get; }
         public IDeliveryService DeliveryService { get; }
         public ILogger<ApiController> Logger { get; }
+        public IPumiService PumiService { get; }
+        public IGeoJsonService GeoJsonService { get; }
 
         [HttpGet]
         [Route("/api/install")]
@@ -136,6 +143,68 @@ namespace DeliveryPartnerSampleApi.Controllers
             catch (Exception ex)
             {
                 Logger.LogError("There was a problem creating the delivery", ex);
+                return Ok(new ApiResponse<Delivery> { Success = false, Message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Route("/api/reverse")]
+        [SwaggerOperation(summary: "Reverse to Address",
+       description: "Reverses a latitude and longitude and returns the Address.",
+       Tags = new string[] { "Delivery" })]
+        [SwaggerResponse(200, "The reversed address", typeof(ApiResponse<Address>))]
+        [SwaggerResponse(500, "There was a problem creating the Delivery.", typeof(ApiResponse))]
+        [Consumes("application/json")]
+        [Produces("application/json")]
+        public async Task<IActionResult> ReverseToAddress([FromBody] ReverseRequest reverseRequest)
+        {
+            try
+            {
+                var province = await GeoJsonService.GetName(reverseRequest.Latitude, reverseRequest.Longitude, 1);
+                var district = await GeoJsonService.GetName(reverseRequest.Latitude, reverseRequest.Longitude, 2);
+                var commune = await GeoJsonService.GetName(reverseRequest.Latitude, reverseRequest.Longitude, 3);
+
+                var allDistricts = await PumiService.GetAllItems(PumiItemType.District);
+                var selectedDistrict = allDistricts.FirstOrDefault(e => e.Value.Name.Latin == district);
+
+                var address = new Address
+                {
+                    Province = province,
+                    Commune = commune,
+                    District = district,
+                    Latitude = reverseRequest.Latitude,
+                    Longitude = reverseRequest.Longitude,
+                    Postcode = $"{selectedDistrict.Key}00"
+                };
+
+                return Ok(new ApiResponse<Address> { Success = true, Data = address });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("There was a problem reversing the latitude and longitude", ex);
+                return Ok(new ApiResponse<Delivery> { Success = false, Message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Route("/api/check-coverage")]
+        [SwaggerOperation(summary: "Check Coverage",
+       description: "Checks if Coverage Area is in Cambodia.",
+       Tags = new string[] { "Delivery" })]
+        [SwaggerResponse(200, "Returns if the latitude/longitude is in the coverage area or not.", typeof(ApiResponse<bool>))]
+        [SwaggerResponse(500, "There was a problem checking the coverage area.", typeof(ApiResponse))]
+        [Consumes("application/json")]
+        [Produces("application/json")]
+        public async Task<IActionResult> CheckCoverage([FromBody] ReverseRequest reverseRequest)
+        {
+            try
+            {
+                var isInCoverage = await GeoJsonService.CheckCoverage(reverseRequest.Latitude, reverseRequest.Longitude);
+                return Ok(new ApiResponse<bool> { Success = true, Data = isInCoverage });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("There was a problem reversing the latitude and longitude", ex);
                 return Ok(new ApiResponse<Delivery> { Success = false, Message = ex.Message });
             }
         }
